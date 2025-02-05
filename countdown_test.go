@@ -2,23 +2,28 @@ package main
 
 import (
 	"bytes"
+	"slices"
 	"testing"
-	"time"
 )
 
-type SpySleeper struct {
-	Calls int
+type SpyCountdown struct {
+	Calls []string
 }
 
-func (s *SpySleeper) Sleep(duration time.Duration) {
-	s.Calls++
+func (s *SpyCountdown) Sleep() {
+	s.Calls = append(s.Calls, "sleep")
+}
+
+func (s *SpyCountdown) Write([]byte) (n int, err error) {
+	s.Calls = append(s.Calls, "write")
+	return 0, nil
 }
 
 func TestCountdown(t *testing.T) {
 	t.Run("prints countdown", func(t *testing.T) {
+		spy_countdown := &SpyCountdown{}
 		buffer := &bytes.Buffer{}
-		spy_sleeper := SpySleeper{}
-		Countdown(buffer, &spy_sleeper)
+		Countdown(buffer, spy_countdown)
 
 		got := buffer.String()
 		want := "3\n2\n1\nGo!\n"
@@ -26,9 +31,17 @@ func TestCountdown(t *testing.T) {
 		if got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}
+	})
 
-		if spy_sleeper.Calls != 3 {
-			t.Fatal("expected sleep to get called 3 times")
+	t.Run("prints and sleeps in the right order", func(t *testing.T) {
+		spy_countdown := &SpyCountdown{}
+		Countdown(spy_countdown, spy_countdown)
+
+		got := spy_countdown.Calls
+		want := []string{"write", "sleep", "write", "sleep", "write", "sleep", "write"}
+
+		if !slices.Equal(got, want) {
+			t.Errorf("got %q, want %q", got, want)
 		}
 	})
 }
